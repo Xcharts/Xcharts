@@ -20,7 +20,7 @@
 */
 
 /*
- * Xcharts v0.1
+ * Xcharts v0.2
  * Released under the MIT license
  * Base on D3.js
  * Date: 2014.09.06 JST
@@ -51,6 +51,14 @@ var Xcharts = function() {
     this.xDisplayNum;
     this.xColWidth;
     this.xAxisDescription;
+    this.xCategoriesSetting = false;
+    this.xTimeSetting = false;
+    this.xDisplayWay = 'point';
+    this.xLabelDirection = 0;
+    this.xLabelX;
+    this.xLabelY;
+    this.xTimeLow;
+    this.xTimeHight;
 
     this.yAxis;
     this.yAxisHeight;
@@ -92,16 +100,42 @@ var Xcharts = function() {
         this.chart = attrs.chart;
         this.graphicSizeHeight = attrs.size.height;
         this.graphicSizeWidth = attrs.size.width;
-        this.xScaleNames = attrs.xAxis.categories;
+        this.setAxisAttribute(attrs.xAxis, attrs.yAxis);
         this.yScaleNames = attrs.yAxis.range;
-        this.xAxisWidth = attrs.xAxis.width;
-        this.yAxisHeight = attrs.yAxis.height;
-        this.xAxisDescription = attrs.xAxis.description.text;
-        this.yAxisDescription = attrs.yAxis.description.text;
         this.datas = attrs.datas;
         this.yMaxValue = attrs.yAxis.range[0];
         this.title = attrs.title;
         this.subtitle = attrs.subtitle;
+    }
+
+    Xcharts.prototype.setAxisAttribute = function(xAxis, yAxis) {
+        if (xAxis.categories != undefined) {
+            this.xCategoriesSetting = true;
+            this.xScaleNames = xAxis.categories;
+            this.xLabelX = 12;
+            this.xLabelY = -3;
+        }
+        else if (xAxis.time != undefined){
+            this.xTimeSetting = true;
+            this.xTimeLow = new Date(xAxis.time.period[0]);
+            this.xTimeHight = new Date(xAxis.time.period[1]);
+            this.xScaleNames = new Array(this.xTimeLow, this.xTimeHight);
+            if (xAxis.time.display != undefined) {
+                this.xDisplayWay = xAxis.time.display;
+            }
+            this.xLabelX = -10;//55;
+            this.xLabelY = 8;
+        }
+        else {
+
+        }
+        this.xAxisWidth = xAxis.width;
+        this.yAxisHeight = yAxis.height;
+        this.xAxisDescription = xAxis.description.text;
+        this.yAxisDescription = yAxis.description.text;
+        if (xAxis.labelDirection != undefined) {
+            this.xLabelDirection = xAxis.labelDirection;
+        }
     }
 
     Xcharts.prototype.buildChart = function(chartObjectName) {
@@ -130,12 +164,26 @@ var Xcharts = function() {
 
 
     Xcharts.prototype.buildAxis = function() {
-        this.xDisplayNum = this.xScaleNames.length - 1;
-        this.xColWidth = (this.xAxisWidth - this.xAxisPadding - this.padding * 2) / this.xDisplayNum;
-
-        this.xScale = d3.scale.ordinal()
-            .domain(this.xScaleNames)
-            .rangePoints([this.padding, this.xAxisWidth - this.xAxisPadding - this.padding]);
+        if (this.xCategoriesSetting) {
+            this.xDisplayNum = this.xScaleNames.length - 1;
+            this.xColWidth = (this.xAxisWidth - this.xAxisPadding - this.padding * 2) / this.xDisplayNum;
+            this.xScale = d3.scale.ordinal()
+                .domain(this.xScaleNames)
+                .rangePoints([this.padding, this.xAxisWidth - this.xAxisPadding - this.padding]);
+        }
+        else if (this.xTimeSetting) {
+            this.xDisplayNum = 5;
+            this.xColWidth = (this.xAxisWidth - this.xAxisPadding - this.padding * 2) / this.xDisplayNum;
+            this.xScale = d3.time.scale()
+                .domain(this.xScaleNames)
+                .nice(d3.time.year, 1)
+                .range([this.padding, this.xAxisWidth - this.xAxisPadding - this.padding]);
+        }
+        else {
+            this.xScale = d3.scale.linear()
+                .domain(this.xScaleNames)
+                .range([this.padding, this.xAxisWidth - this.xAxisPadding - this.padding]);
+        }
         this.yScale = d3.scale.linear()
             .domain(this.yScaleNames)
             .range([this.padding, this.yAxisHeight - this.yAxisPadding - this.padding]);
@@ -147,25 +195,58 @@ var Xcharts = function() {
             .orient("left");
     }
 
+    Xcharts.prototype.getShapePosition = function(data) {
+        var x = 0;
+        var y = 0;
+        if (data.coordinateType == 'x') {
+            var coordinateName = new Date(data.coordinateName);
+            if (this.xTimeSetting) {
+                var months = d3.time.months(this.xTimeLow, coordinateName);
+                var monthsCount = months.length;
+                if (coordinateName.getDate() != 1) {
+                    monthsCount--;
+                }
+                x = monthsCount * this.xColWidth / 12 + this.xAxisPadding + this.padding;
+            }
+            else if (this.xCategoriesSetting) {
+                var pos = this.xScaleNames.indexOf(data.coordinateName);
+                if (pos != '-1') {
+                    x = pos * this.xColWidth + this.xAxisPadding + this.padding;
+                }
+            }
+            return x;
+        }
+        else if (data.coordinateType == 'y') {
+            y = this.yAxisHeight + this.yAxiMarginTop - this.padding - this.yAxisPadding - 
+                ((this.yAxisHeight - this.yAxisPadding - this.padding * 2) / this.yMaxValue * data.value );
+            return y;
+        }
+    }
+
     Xcharts.prototype.displayShapeList = function(index, shape, datas, color) {
         var className = '.' + shape + index;
         var colorFill = color.fill;
         var colorStroke = color.stroke;
         var thisObject = this;
+        var coordinateData;
         this.graphicArea.selectAll(className)
             .data(datas)
             .enter()
             .append(shape)
             .attr("class", className)
             .attr("cx", function(data, index) {
-                var xValue = data[0];
-                var pos = thisObject.xScaleNames.indexOf(xValue);
-                if (pos != '-1') {
-                    return (pos * thisObject.xColWidth) + thisObject.xAxisPadding + thisObject.padding;
-                }
+                coordinateData = {
+                    coordinateName: data[0],
+                    coordinateType: 'x'
+                };
+                return thisObject.getShapePosition(coordinateData);
             })
             .attr("cy", function(data, index) {
-                return thisObject.yAxisHeight + thisObject.yAxiMarginTop - thisObject.padding - thisObject.yAxisPadding - ((thisObject.yAxisHeight - thisObject.yAxisPadding - thisObject.padding * 2) / thisObject.yMaxValue * data[1] );
+                coordinateData = {
+                    value: data[1],
+                    coordinateType: 'y'
+                };
+                return thisObject.getShapePosition(coordinateData);
             })
             .attr("r", 0)
             .attr("stroke", colorStroke)
@@ -271,9 +352,9 @@ var Xcharts = function() {
             .attr("transform", "translate(" + this.xAxisPadding + ", " + (this.yAxisHeight - this.yAxisPadding + this.xAxiMarginTop) + ")")
             .call(this.xAxis)
             .selectAll("text")
-            .attr("x", 12)
-            .attr("y", -3)
-            .attr("transform", "rotate(90)")
+            .attr("x", this.xLabelX)
+            .attr("y", this.xLabelY)
+            .attr("transform", "rotate(" + this.xLabelDirection + ")")
             .style("text-anchor", "start");
 
         this.graphicArea.append("g")
