@@ -2,3 +2,11 @@ v0.2
 
 Added time type in X Axis. You can set X Axis as a date time type, can the Xcharts can 
 calculate coordinate position and put it on homologous plcae of X Axis.
+
+v0.2.1 
+
+Now you can create a chart with line 
+
+v0.2.2
+
+Set y Axis label on top of y Axis

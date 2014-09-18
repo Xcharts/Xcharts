@@ -20,7 +20,7 @@
 */
 
 /*
- * Xcharts v0.2
+ * Xcharts v0.2.2
  * Released under the MIT license
  * Base on D3.js
  * Date: 2014.09.06 JST
@@ -76,7 +76,7 @@ var Xcharts = function() {
 
     var graphicKinds = {
         'scatter': 'scatter',
-        'chart': ''
+        'line': 'line'
     };
 
     Xcharts.prototype.init = function(attrs) {
@@ -146,8 +146,8 @@ var Xcharts = function() {
     Xcharts.prototype.getChartObject = function(chartObjectName) {
         var chartObject;
         switch (chartObjectName) {
-            case '':
-
+            case 'line':
+                chartObject = this.line;
                 break;
             case 'scatter':
                 chartObject = this.scatter;
@@ -157,9 +157,14 @@ var Xcharts = function() {
     }
 
     Xcharts.prototype.scatter = {
+        type: 'scatter',
         displayCoordinate : function() {
 
         }
+    }
+
+    Xcharts.prototype.line = {
+        type: 'line'
     }
 
 
@@ -290,13 +295,13 @@ var Xcharts = function() {
         if (this.xAxisDescription != undefined) {
             this.graphicArea.append('text')
                 .attr({'id': 'xLabel', 'text-anchor': 'middle'})
-                .attr('transform', "translate(" + (this.xAxisWidth + 20) + ", " + (this.yAxisHeight - this.yAxisPadding + this.xAxiMarginTop + 5) + ")")
+                .attr('transform', "translate(" + (this.xAxisWidth + 30) + ", " + (this.yAxisHeight - this.yAxisPadding + this.xAxiMarginTop + 5) + ")")
                 .text(this.xAxisDescription);
         }
         
         if (this.yAxisDescription != undefined) {
             this.graphicArea.append('text')
-                .attr('transform', 'translate(0,' + this.yAxisHeight / 2 + ')rotate(-90)')
+                .attr('transform', 'translate(28,15)rotate(0)')
                 .attr({'id': 'yLabel', 'text-anchor': 'middle'})
                 .text(this.yAxisDescription);
         }  
@@ -335,6 +340,33 @@ var Xcharts = function() {
                 .attr('transform', "translate(-15,4)")
                 .text(optionDatas[index].text);
         }
+    }
+
+    Xcharts.prototype.drawLine = function(datas) {
+        var thisObject = this;
+        var coordinateData;
+        var line = d3.svg.line()
+            .x(function(data, i){
+                coordinateData = {
+                    coordinateName: data[0],
+                    coordinateType: 'x'
+                };
+                return thisObject.getShapePosition(coordinateData);
+            })
+            .y(function(data){
+                coordinateData = {
+                    value: data[1],
+                    coordinateType: 'y'
+                };
+                return thisObject.getShapePosition(coordinateData);
+            });
+
+        this.graphicArea.append("path")
+            .attr("class", "high")
+            .attr("d", line(datas))
+            .attr("stroke-width", "2px")
+            .attr("stroke", "#66B3FF")
+            .attr("fill", "none");
     }
 
     Xcharts.prototype.show = function(selectorId) {
@@ -382,8 +414,15 @@ var Xcharts = function() {
                     colorFill: datas[index].color.fill,
                     shape: datas[index].shape
                 };
+                if (this.chartObject.type == 'line') {
+                    this.drawLine(data);
+                }
             }
-            this.displayLegend(optionDatas);
+            if (index > 0) {
+                this.displayLegend(optionDatas);
+            }
+
+            
         }    
     } 
 }
