@@ -20,14 +20,14 @@
 */
 
 /*
- * Xcharts v0.2.2
+ * Xcharts v0.2.3
  * Released under the MIT license
  * Base on D3.js
- * Date: 2014.09.06 JST
+ * Date: 2014.10.10 JST
  */
 
 var Xcharts = function() {
-    this.baseObjectName = 'd3';
+    this.baseObjectName = 'd3';                 /***base object of charts js, only can fit for D3 until now***/
 
     this.chart;
     this.chartObject;
@@ -37,32 +37,32 @@ var Xcharts = function() {
 
     this.padding = 10;
 
-    this.title;
-    this.subtitle;
+    this.title;                                  /***title of chart***/
+    this.subtitle;                               /***sub title of chart***/
 
-    this.graphicArea;
+    this.graphicArea;                            /***object of graphic area***/
 
-    this.xAxis;
-    this.xAxisWidth;
-    this.xScale;
-    this.xAxisPadding = 50;
-    this.xScaleNames;
+    this.xAxis;                                  /***object of X Axis***/
+    this.xAxisWidth;                             
+    this.xScale;                                 /***object of scale on X Axis***/
+    this.xAxisPadding = 50;                      /***scale padding on X Axis***/
+    this.xScaleNames;                            
     this.xAxiMarginTop = 30;
-    this.xDisplayNum;
-    this.xColWidth;
+    this.xDisplayNum;                            /***number of scale on X Axis***/
+    this.xColWidth;                              /***the width of X Axis***/
     this.xAxisDescription;
-    this.xCategoriesSetting = false;
-    this.xTimeSetting = false;
-    this.xDisplayWay = 'point';
+    this.xCategoriesSetting = false;             /***when X scale data type is a custom type, it will be set as true***/
+    this.xTimeSetting = false;                   /***when X scale data type is a date type, it will be set as true***/
+    this.xDisplayWay = 'point';                  /***when X scale data type is a date type, you can set x scale as interval or point***/
     this.xLabelDirection = 0;
     this.xLabelX;
     this.xLabelY;
-    this.xTimeLow;
-    this.xTimeHight;
+    this.xTimeLow;                               /***when X scale data type is a date type, start of that period***/
+    this.xTimeHight;                             /***when X scale data type is a date type, end of that period***/
 
-    this.yAxis;
+    this.yAxis;                                  /***object of Y Axis***/
     this.yAxisHeight;
-    this.yScale;
+    this.yScale;                                 /***object of scale on Y Axis***/
     this.yAxisPadding = 80;
     this.yScaleNames;
     this.yAxiMarginTop = 30;
@@ -72,7 +72,7 @@ var Xcharts = function() {
     this.legendArea;
     this.legendOptionArea;
 
-    this.datas;
+    this.datas;                                  /***datas which should be provided from outside***/
 
     var graphicKinds = {
         'scatter': 'scatter',
@@ -204,8 +204,8 @@ var Xcharts = function() {
         var x = 0;
         var y = 0;
         if (data.coordinateType == 'x') {
-            var coordinateName = new Date(data.coordinateName);
             if (this.xTimeSetting) {
+                var coordinateName = new Date(data.coordinateInfo[0]);
                 var months = d3.time.months(this.xTimeLow, coordinateName);
                 var monthsCount = months.length;
                 if (coordinateName.getDate() != 1) {
@@ -214,7 +214,13 @@ var Xcharts = function() {
                 x = monthsCount * this.xColWidth / 12 + this.xAxisPadding + this.padding;
             }
             else if (this.xCategoriesSetting) {
-                var pos = this.xScaleNames.indexOf(data.coordinateName);
+                var pos = '-1';
+                if (typeof data.coordinateInfo == 'string' || typeof data.coordinateInfo == 'number') {
+                    pos = data.dataIndex;
+                }
+                else {
+                    pos = this.xScaleNames.indexOf(data.coordinateInfo[0]);
+                }
                 if (pos != '-1') {
                     x = pos * this.xColWidth + this.xAxisPadding + this.padding;
                 }
@@ -222,8 +228,15 @@ var Xcharts = function() {
             return x;
         }
         else if (data.coordinateType == 'y') {
+            var yValue = 0;
+            if (typeof data.coordinateInfo == 'string' || typeof data.coordinateInfo == 'number') {
+                yValue = data.coordinateInfo;
+            }
+            else {
+                yValue = data.coordinateInfo[1];
+            }
             y = this.yAxisHeight + this.yAxiMarginTop - this.padding - this.yAxisPadding - 
-                ((this.yAxisHeight - this.yAxisPadding - this.padding * 2) / this.yMaxValue * data.value );
+                ((this.yAxisHeight - this.yAxisPadding - this.padding * 2) / this.yMaxValue * yValue);
             return y;
         }
     }
@@ -241,14 +254,16 @@ var Xcharts = function() {
             .attr("class", className)
             .attr("cx", function(data, index) {
                 coordinateData = {
-                    coordinateName: data[0],
+                    coordinateInfo: data,
+                    dataIndex: index,
                     coordinateType: 'x'
                 };
                 return thisObject.getShapePosition(coordinateData);
             })
             .attr("cy", function(data, index) {
                 coordinateData = {
-                    value: data[1],
+                    coordinateInfo: data,
+                    dataIndex: index,
                     coordinateType: 'y'
                 };
                 return thisObject.getShapePosition(coordinateData);
@@ -346,16 +361,18 @@ var Xcharts = function() {
         var thisObject = this;
         var coordinateData;
         var line = d3.svg.line()
-            .x(function(data, i){
+            .x(function(data, index){
                 coordinateData = {
-                    coordinateName: data[0],
+                    coordinateInfo: data,
+                    dataIndex: index,
                     coordinateType: 'x'
                 };
                 return thisObject.getShapePosition(coordinateData);
             })
-            .y(function(data){
+            .y(function(data, index){
                 coordinateData = {
-                    value: data[1],
+                    coordinateInfo: data,
+                    dataIndex: index,
                     coordinateType: 'y'
                 };
                 return thisObject.getShapePosition(coordinateData);
@@ -420,9 +437,7 @@ var Xcharts = function() {
             }
             if (index > 0) {
                 this.displayLegend(optionDatas);
-            }
-
-            
+            }            
         }    
     } 
 }
